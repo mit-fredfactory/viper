@@ -1,0 +1,3 @@
+[submodule "headless-simulator"]
+	path = headless-sim
+	url = https://github.com/afr2903/industrial-engineer.git
