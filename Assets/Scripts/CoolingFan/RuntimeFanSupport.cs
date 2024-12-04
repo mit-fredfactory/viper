@@ -14,6 +14,7 @@ public class RuntimeFanSupport : MonoBehaviour
     public bool runtimeStarted = false;
     
     public TextMeshProUGUI subassemblyCountText;
+    public TextMeshProUGUI feedbackText;
 
     // state machine
     private enum State {
@@ -34,30 +35,31 @@ public class RuntimeFanSupport : MonoBehaviour
     private int m5InsertCount = 0;
     private int m3InsertCount = 0;
     private int subassemblyCount = 0;
+    private float currentTime = 0;
 
     void Update() {
         if (runtimeStarted) {
             switch (currentState) {
                 case State.GrabFanSupport:
                     if (!stateStarted) {
-                        stateStartTime = Time.time;
+                        stateStartTime = currentTime;
                         stateStarted = true;
                         m5InsertCount = 0;
                         m3InsertCount = 0;
-                        Debug.Log("Grabbing fan support");
+                        SetFeedbackText("Grabbing fan support");
                     }
-                    if (Time.time - stateStartTime > grabMaterialTime) {
+                    if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.PositionFanSupportOnJig;
                         stateStarted = false;
                     }
                     break;
                 case State.PositionFanSupportOnJig:
                     if (!stateStarted) {
-                        stateStartTime = Time.time;
+                        stateStartTime = currentTime;
                         stateStarted = true;
-                        Debug.Log("Positioning fan support on jig");
+                        SetFeedbackText("Positioning fan support on jig");
                     }
-                    if (Time.time - stateStartTime >
+                    if (currentTime - stateStartTime >
                         positionFanSupportOnJigTime) {
                         currentState = State.M5Insert;
                         stateStarted = false;
@@ -65,23 +67,23 @@ public class RuntimeFanSupport : MonoBehaviour
                     break;
                 case State.M5Insert:
                     if (!stateStarted) {
-                        stateStartTime = Time.time;
+                        stateStartTime = currentTime;
                         stateStarted = true;
-                        Debug.Log("Grabbing M5 insert");
+                        SetFeedbackText("Grabbing M5 insert");
                     }
-                    if (stateStarted && Time.time - stateStartTime > 
+                    if (stateStarted && currentTime - stateStartTime > 
                         grabMaterialTime) {
                         if (!heatInsertStarted) {
-                            heatInsertStartTime = Time.time;
+                            heatInsertStartTime = currentTime;
                             heatInsertStarted = true;
-                            Debug.Log("Inserting M5 insert");
+                            SetFeedbackText("Inserting M5 insert");
                         }
-                        if (Time.time - heatInsertStartTime > addHeatInsertTime) {
+                        if (currentTime - heatInsertStartTime > addHeatInsertTime) {
                             if (Random.value < heatInsertFailureRate) {
-                                Debug.Log("M5 insert failed, subassembly to scrap");
+                                SetFeedbackText("M5 insert failed, subassembly to scrap");
                                 currentState = State.GrabFanSupport;
                             } else {
-                                Debug.Log("M5 insert successful");
+                                SetFeedbackText("M5 insert successful");
                                 m5InsertCount++;
                                 if (m5InsertCount == 2)
                                     currentState = State.M3Insert;
@@ -93,23 +95,23 @@ public class RuntimeFanSupport : MonoBehaviour
                     break;
                 case State.M3Insert:
                     if (!stateStarted) {
-                        stateStartTime = Time.time;
+                        stateStartTime = currentTime;
                         stateStarted = true;
-                        Debug.Log("Grabbing M3 insert");
+                        SetFeedbackText("Grabbing M3 insert");
                     }
-                    if (stateStarted && Time.time - stateStartTime > 
+                    if (stateStarted && currentTime - stateStartTime > 
                         grabMaterialTime) {
                         if (!heatInsertStarted) {
-                            heatInsertStartTime = Time.time;
+                            heatInsertStartTime = currentTime;
                             heatInsertStarted = true;
-                            Debug.Log("Inserting M3 insert");
+                            SetFeedbackText("Inserting M3 insert");
                         }
-                        if (Time.time - heatInsertStartTime > addHeatInsertTime) {
+                        if (currentTime - heatInsertStartTime > addHeatInsertTime) {
                             if (Random.value < heatInsertFailureRate) {
-                                Debug.Log("M3 insert failed, Subassembly to scrap");
+                                SetFeedbackText("M3 insert failed, subassembly to scrap");
                                 currentState = State.GrabFanSupport;
                             } else {
-                                Debug.Log("M3 insert successful");
+                                SetFeedbackText("M3 insert successful");
                                 m3InsertCount++;
                                 if (m3InsertCount == 4)
                                     currentState = State.MoveSubassembly;
@@ -121,22 +123,39 @@ public class RuntimeFanSupport : MonoBehaviour
                     break;
                 case State.MoveSubassembly:
                     if (!stateStarted) {
-                        stateStartTime = Time.time;
+                        stateStartTime = currentTime;
                         stateStarted = true;
-                        Debug.Log("Moving subassembly");
+                        SetFeedbackText("Moving subassembly");
                     }
-                    if (Time.time - stateStartTime > moveSubassemblyTime) {
+                    if (currentTime - stateStartTime > moveSubassemblyTime) {
                         currentState = State.Done;
                         stateStarted = false;
                     }
                     break;
                 case State.Done:
-                    Debug.Log("Cooling subassembly complete");
-                    subassemblyCount++;
-                    subassemblyCountText.text = subassemblyCount.ToString();
+                    SetFeedbackText("Cooling subassembly complete");
+                    SetSubassemblyCount(1);
                     currentState = State.GrabFanSupport;
                     break;
             }
         }
+    }
+    
+    public void SetRuntime(bool start) {
+        runtimeStarted = start;
+    }
+    public void SetTime(float time) {
+        currentTime = time;
+    }
+    public int GetSubassemblyCount() {
+        return subassemblyCount;
+    }
+    public void SetSubassemblyCount(int sign) {
+        subassemblyCount += sign;
+        subassemblyCountText.text = subassemblyCount.ToString();
+    }
+    public void SetFeedbackText(string text) {
+        feedbackText.text = text;
+        Debug.Log(text);
     }
 }

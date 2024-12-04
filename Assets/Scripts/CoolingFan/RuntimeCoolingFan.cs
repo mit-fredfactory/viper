@@ -10,9 +10,10 @@ public class RuntimeCoolingFan : MonoBehaviour
     public float screwFailRate = 0.2f;
     public bool runtimeStarted = false;
     
-    public TextMeshProUGUI coolingSubassemblyCountText;
-    public TextMeshProUGUI fanSubassemblyCountText;
+    public RuntimeFanSupport runtimeFanSupport;
+    public RuntimeFanCrimping runtimeFanCrimping;
     public TextMeshProUGUI subassemblyCountText;
+    public TextMeshProUGUI feedbackText;
 
     // state machine
     private enum State {
@@ -28,67 +29,63 @@ public class RuntimeCoolingFan : MonoBehaviour
     private int screwCount= 0;
     private int screwedFanCount = 0;
     private int subassemblyCount = 0;
+    private float currentTime = 0;
 
     void Update() {
         if (runtimeStarted) {
-            int coolingSubassemblyCount = int.Parse(
-                                            coolingSubassemblyCountText.text);
-            int fanSubassemblyCount = int.Parse(
-                                            fanSubassemblyCountText.text);
+            int coolingSubassemblyCount = runtimeFanSupport.GetSubassemblyCount();
+            int fanSubassemblyCount = runtimeFanCrimping.GetSubassemblyCount();
             switch (currentState) {
                 case State.GrabCoolingSubassembly:
                     if (!stateStarted) {
-                        if (coolingSubassemblyCount > 0) {
-                            stateStartTime = Time.time;
+                        if (runtimeFanSupport.GetSubassemblyCount() > 0) {
+                            stateStartTime = currentTime;
                             stateStarted = true;
-                            Debug.Log("Grabbing cooling subassembly");
-                            coolingSubassemblyCountText.text = 
-                                (coolingSubassemblyCount - 1).ToString();
+                            SetFeedbackText("Grabbing cooling subassembly");
+                            runtimeFanSupport.SetSubassemblyCount(-1);
                         } else {
-                            Debug.Log("No cooling subassemblies available");
+                            SetFeedbackText("No cooling subassemblies available");
                         }
-                    } else if (Time.time - stateStartTime > grabMaterialTime) {
+                    } else if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.GrabFanSubassembly;
                         stateStarted = false;
                     }
                     break;
                 case State.GrabFanSubassembly:
                     if (!stateStarted) {
-                        if (fanSubassemblyCount > 0) {
-                            stateStartTime = Time.time;
+                        if (runtimeFanCrimping.GetSubassemblyCount() > 0) {
+                            stateStartTime = currentTime;
                             stateStarted = true;
-                            Debug.Log("Grabbing fan subassembly");
-                            fanSubassemblyCountText.text = 
-                                (fanSubassemblyCount - 1).ToString();
+                            SetFeedbackText("Grabbing fan subassembly");
+                            runtimeFanCrimping.SetSubassemblyCount(-1);
                         } else {
-                            Debug.Log("No fan subassemblies available");
+                            SetFeedbackText("No fan subassemblies available");
                         }
-                    } else if (Time.time - stateStartTime > grabMaterialTime) {
+                    } else if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.Screw;
                         stateStarted = false;
                     }
                     break;
                 case State.Screw:
                     if (!stateStarted) {
-                        stateStartTime = Time.time;
+                        stateStartTime = currentTime;
                         stateStarted = true;
-                        Debug.Log("Screwing");
+                        SetFeedbackText("Screwing");
                     }
-                    if (Time.time - stateStartTime > screwTime) {
+                    if (currentTime - stateStartTime > screwTime) {
                         if (Random.value < screwFailRate) {
-                            Debug.Log("Screwing failed, retrying");
+                            SetFeedbackText("Screwing failed, retrying");
                         } else {
-                            Debug.Log("Screw successful");
+                            SetFeedbackText("Screw successful");
                             screwCount++;
                             if (screwCount == 2) {
-                                Debug.Log("Fan screwed successfully");
+                                SetFeedbackText("Fan screwed successfully");
                                 screwedFanCount++;
                                 if (screwedFanCount == 2) {
-                                    Debug.Log("Both fans screwed successfully");
+                                    SetFeedbackText("Both fans screwed successfully");
                                     currentState = State.Done;
-                                } else {
-                                    screwCount = 0;
-                                }
+                                    screwedFanCount = 0;
+                                } 
                                 screwCount = 0;
                             }    
                         }
@@ -96,12 +93,29 @@ public class RuntimeCoolingFan : MonoBehaviour
                     }
                     break;
                 case State.Done:
-                    Debug.Log("Cooling Fan subassembly complete");
+                    SetFeedbackText("Cooling Fan subassembly complete");
                     subassemblyCount++;
                     subassemblyCountText.text = subassemblyCount.ToString();
                     currentState = State.GrabCoolingSubassembly;
                     break;
             }
         }
+    }
+    public void SetRuntime(bool start) {
+        runtimeStarted = start;
+    }
+    public void SetTime(float time) {
+        currentTime = time;
+    }
+    public int GetSubassemblyCount() {
+        return subassemblyCount;
+    }
+    public void SetSubassemblyCount(int sign) {
+        subassemblyCount += sign;
+        subassemblyCountText.text = subassemblyCount.ToString();
+    }
+    public void SetFeedbackText(string text) {
+        feedbackText.text = text;
+        Debug.Log(text);
     }
 }
