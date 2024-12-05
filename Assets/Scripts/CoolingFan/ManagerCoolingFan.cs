@@ -28,7 +28,8 @@ public class ManagerCoolingFan : MonoBehaviour
     void Update() {
         if (isPlaying) {
             timer += Time.deltaTime * float.Parse(speedAccelInputField.text);
-            timerText.text = timer.ToString("F2");
+            // set timer text to time in format: xx D xx H xx M xx S xx MS
+            timerText.text = FormatTime(timer);
             runtimeCoolingFan.SetTime(timer);
             runtimeFanSupport.SetTime(timer);
             runtimeFanCrimping.SetTime(timer);
@@ -50,6 +51,18 @@ public class ManagerCoolingFan : MonoBehaviour
     }
     void Download() {
         Debug.Log("Download");
+    }
+    public static string FormatTime(float time) {
+        int days = (int)(time / 86400);
+        time -= days * 86400;
+        int hours = (int)(time / 3600);
+        time -= hours * 3600;
+        int minutes = (int)(time / 60);
+        time -= minutes * 60;
+        int seconds = (int)time;
+        int milliseconds = (int)((time - seconds) * 1000);
+
+        return string.Format("{0:00} D\n{1:00} H\n{2:00} M\n{3:00} S\n{4:000} MS", days, hours, minutes, seconds, milliseconds);
     }
 
 

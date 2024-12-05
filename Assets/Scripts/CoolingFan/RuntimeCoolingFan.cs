@@ -116,6 +116,5 @@ public class RuntimeCoolingFan : MonoBehaviour
     }
     public void SetFeedbackText(string text) {
         feedbackText.text = text;
-        Debug.Log(text);
     }
 }
