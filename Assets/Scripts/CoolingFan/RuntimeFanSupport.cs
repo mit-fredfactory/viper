@@ -10,6 +10,17 @@ public class RuntimeFanSupport : MonoBehaviour
     public float addHeatInsertTime = 6f;
     public float heatInsertFailureRate = 0.1f;
     public float moveSubassemblyTime = 5f;
+    // UI Label for operator parameters
+    [Header("Operator Parameters")]
+    [Header("Demographic information")]
+    public int age;
+    public int experienceInYears;
+    public int educationLevel;
+    public int ergonomicRating;
+    public int fatigueLevel;
+    public int noiseLevel;
+    public int temperature;
+    public int lighting;
 
     public bool runtimeStarted = false;
     
@@ -156,6 +167,5 @@ public class RuntimeFanSupport : MonoBehaviour
     }
     public void SetFeedbackText(string text) {
         feedbackText.text = text;
-        Debug.Log(text);
     }
 }
