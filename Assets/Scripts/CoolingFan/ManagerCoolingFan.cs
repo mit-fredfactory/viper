@@ -10,6 +10,9 @@ public class ManagerCoolingFan : MonoBehaviour
     public Button downloadButton;
     public TMP_InputField speedAccelInputField;
     public TMP_InputField promptInputField;
+    public TMP_InputField noiseLevelInputField;
+    public TMP_InputField temperatureInputField;
+    public TMP_InputField lightingInputField;
 
     // Subassemblies
     public RuntimeCoolingFan runtimeCoolingFan;
@@ -30,9 +33,13 @@ public class ManagerCoolingFan : MonoBehaviour
             timer += Time.deltaTime * float.Parse(speedAccelInputField.text);
             // set timer text to time in format: xx D xx H xx M xx S xx MS
             timerText.text = FormatTime(timer);
-            runtimeCoolingFan.SetTime(timer);
-            runtimeFanSupport.SetTime(timer);
-            runtimeFanCrimping.SetTime(timer);
+            SetTime(timer);
+
+            // Update environmental factors
+            SetEnvironmentalFactors(
+                int.Parse(noiseLevelInputField.text),
+                int.Parse(temperatureInputField.text),
+                int.Parse(lightingInputField.text));
         }
     }
 
@@ -63,6 +70,17 @@ public class ManagerCoolingFan : MonoBehaviour
         int milliseconds = (int)((time - seconds) * 1000);
 
         return string.Format("{0:00} D\n{1:00} H\n{2:00} M\n{3:00} S\n{4:000} MS", days, hours, minutes, seconds, milliseconds);
+    }
+
+    public void SetTime(float time) {
+        runtimeCoolingFan.SetTime(timer);
+        runtimeFanSupport.SetTime(timer);
+        runtimeFanCrimping.SetTime(timer);
+    }
+    public void SetEnvironmentalFactors(int noiseLevel, int temperature, int lighting) {
+        runtimeCoolingFan.SetEnvironmentalFactors(noiseLevel, temperature, lighting);
+        runtimeFanSupport.SetEnvironmentalFactors(noiseLevel, temperature, lighting);
+        runtimeFanCrimping.SetEnvironmentalFactors(noiseLevel, temperature, lighting);
     }
 
 

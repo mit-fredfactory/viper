@@ -35,6 +35,7 @@ public class RuntimeFanSupport : MonoBehaviour
     
     public TextMeshProUGUI subassemblyCountText;
     public TextMeshProUGUI feedbackText;
+    public TextMeshProUGUI operatorEfficiencyText;
 
     // state machine
     private enum State {
@@ -57,6 +58,7 @@ public class RuntimeFanSupport : MonoBehaviour
     private int subassemblyCount = 0;
     private float currentTime = 0;
     private float lastTime = 0;
+    private float operatorEfficiency = 0;
 
     void Update() {
         if (runtimeStarted) {
@@ -72,14 +74,15 @@ public class RuntimeFanSupport : MonoBehaviour
             fatigueLevel = Math.Clamp(fatigueLevel+multiplier, 0, 10);
             motivationLevel = Math.Clamp(motivationLevel-multiplier, 0, 10);
 
-            float operatorEfficiency = 60 + 1 * (35-age) + 1 * experienceInYears + 2 * trainingLevel +
+            operatorEfficiency = 60 + 1 * (35-age) + 1 * experienceInYears + 2 * trainingLevel +
                 1 * attentionLevel - 1 * cognitiveLoad - 1 * learningCurve - 1 * stressLevel -
                 1 * fatigueLevel + 1 * motivationLevel + 1 * ergonomicRating +
                 1 * (70-noiseLevel) -
                 1 * Math.Abs(20-temperature) - 0.2f * Math.Abs(70-lighting);
-            Debug.Log("Operator efficiency: " + operatorEfficiency);
+            //Debug.Log("Operator efficiency: " + operatorEfficiency);
             operatorEfficiency = Mathf.Clamp(operatorEfficiency, 0, 100);
-            heatInsertFailureRate = 0.001f + (100 - operatorEfficiency) * 0.0001f;
+            operatorEfficiencyText.text = operatorEfficiency.ToString();
+            heatInsertFailureRate = 0.002f + (100 - operatorEfficiency) * 0.003f;
             
             switch (currentState) {
                 case State.GrabFanSupport:
@@ -198,5 +201,10 @@ public class RuntimeFanSupport : MonoBehaviour
     }
     public void SetFeedbackText(string text) {
         feedbackText.text = text;
+    }
+    public void SetEnvironmentalFactors(int noise, int temp, int light) {
+        noiseLevel = noise;
+        temperature = temp;
+        lighting = light;
     }
 }
