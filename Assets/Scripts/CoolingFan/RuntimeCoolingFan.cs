@@ -3,6 +3,9 @@ using Random = UnityEngine.Random;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 
 public class RuntimeCoolingFan : MonoBehaviour
 {
@@ -47,12 +50,22 @@ public class RuntimeCoolingFan : MonoBehaviour
     private State currentState = State.GrabCoolingSubassembly;
     private float stateStartTime;
     private bool stateStarted;
-    private int screwCount= 0;
+    private int screwCount = 0;
     private int screwedFanCount = 0;
     private int subassemblyCount = 0;
+    private int totalScrewAttempts = 0;
+    private int totalSuccessfulScrews = 0;
     private float currentTime = 0;
     private float lastTime = 0;
     private float operatorEfficiency = 0;
+
+    // Parameters for dataset of most recent elements
+    public bool generateDataset = false;
+    private bool instanceGenerated = false;
+    private bool csvCreated = false;
+    private string csvFilePath;
+    private List<int> totalScrewAttemptsList = new List<int>();
+    private List<int> totalSuccessfulScrewsList = new List<int>();
 
     void Update() {
         if (runtimeStarted) {
@@ -121,6 +134,7 @@ public class RuntimeCoolingFan : MonoBehaviour
                         } else {
                             SetFeedbackText("Screw successful");
                             screwCount++;
+                            totalSuccessfulScrews++;
                             if (screwCount == 2) {
                                 SetFeedbackText("Fan screwed successfully");
                                 screwedFanCount++;
@@ -132,6 +146,7 @@ public class RuntimeCoolingFan : MonoBehaviour
                                 screwCount = 0;
                             }    
                         }
+                        totalScrewAttempts++;
                         stateStarted = false;
                     }
                     break;
@@ -141,6 +156,17 @@ public class RuntimeCoolingFan : MonoBehaviour
                     subassemblyCountText.text = subassemblyCount.ToString();
                     currentState = State.GrabCoolingSubassembly;
                     break;
+            }
+
+            // Generate dataset
+            if (generateDataset && (int)currentTime % 60 == 0) {
+                if (!instanceGenerated) {
+                    AddDataInstance();
+                    instanceGenerated = true;
+                }
+            } else {
+                instanceGenerated = false;
+                
             }
         }
     }
@@ -164,5 +190,44 @@ public class RuntimeCoolingFan : MonoBehaviour
         noiseLevel = noise;
         temperature = temp;
         lighting = light;
+    }
+
+    public void AddDataInstance() {
+        if (!csvCreated) {
+            CreateNewCSVFile();
+            csvCreated = true;
+        }
+        // if list index is higher than 10, substract the element 10 steps ago from the total
+        totalScrewAttemptsList.Add(totalScrewAttempts);
+        totalSuccessfulScrewsList.Add(totalSuccessfulScrews);
+        int recentTotalScrewAttempts = totalScrewAttemptsList.Count > 10 ? 
+            totalScrewAttemptsList.Last() -
+            totalScrewAttemptsList[totalScrewAttemptsList.Count-10] 
+            : totalScrewAttemptsList.Last();
+        int recentTotalSuccessfulScrews = totalSuccessfulScrewsList.Count > 10 ?
+            totalSuccessfulScrewsList.Last() - 
+            totalSuccessfulScrewsList[totalSuccessfulScrewsList.Count-10] 
+            : totalSuccessfulScrewsList.Last();
+        if (recentTotalScrewAttempts == 0) {
+            Debug.Log("No screw attempts in the last minute");
+            return;
+        }
+        float successRate = (float)recentTotalSuccessfulScrews / recentTotalScrewAttempts;
+        string instance = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",
+            currentTime, age, experienceInYears, trainingLevel, attentionLevel,
+            cognitiveLoad, learningCurve, stressLevel, fatigueLevel, motivationLevel,
+            ergonomicRating, noiseLevel, temperature, lighting, successRate);
+        Debug.Log(instance);
+        using (StreamWriter writer = new StreamWriter(csvFilePath, true)) {
+            writer.WriteLine(instance);
+        }
+    } 
+    private void CreateNewCSVFile() {
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        csvFilePath = Path.Combine(Application.persistentDataPath, $"cooling_fan_{timestamp}.csv");
+        using (StreamWriter writer = new StreamWriter(csvFilePath, false)) {
+            writer.WriteLine("Time,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate");
+        }
+        Debug.Log($"New CSV file created: {csvFilePath}");
     }
 }

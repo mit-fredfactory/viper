@@ -4136,11 +4136,11 @@ MonoBehaviour:
   trainingLevel: 0
   attentionLevel: 7
   cognitiveLoad: 5
-  learningCurve: 0
+  learningCurve: 4
   ergonomicRating: 8
   stressLevel: 2
   fatigueLevel: 4
-  motivationLevel: 0
+  motivationLevel: 6
   noiseLevel: 0
   temperature: 0
   lighting: 0
@@ -4150,6 +4150,7 @@ MonoBehaviour:
   subassemblyCountText: {fileID: 1305113300}
   feedbackText: {fileID: 391070596}
   operatorEfficiencyText: {fileID: 2112102035}
+  generateDataset: 0
 --- !u!1 &1257591646
 GameObject:
   m_ObjectHideFlags: 0
