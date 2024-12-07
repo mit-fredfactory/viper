@@ -51,5 +51,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "viper.sln"
+    "dotnet.defaultSolution": "cooling-subassemblyMex.sln"
 }
