@@ -10,6 +10,9 @@ public class ManagerCoolingFan : MonoBehaviour
     public Button downloadButton;
     public TMP_InputField speedAccelInputField;
     public TMP_InputField promptInputField;
+    public TMP_InputField noiseLevelInputField;
+    public TMP_InputField temperatureInputField;
+    public TMP_InputField lightingInputField;
 
     // Subassemblies
     public RuntimeCoolingFan runtimeCoolingFan;
@@ -30,10 +33,15 @@ public class ManagerCoolingFan : MonoBehaviour
         speed = float.Parse(speedAccelInputField.text);
         if (isPlaying) {
             timer += Time.deltaTime * speed;
-            timerText.text = timer.ToString("F2");
-            runtimeCoolingFan.SetTime(timer);
-            runtimeFanSupport.SetTime(timer);
-            runtimeFanCrimping.SetTime(timer);
+            // set timer text to time in format: xx D xx H xx M xx S xx MS
+            timerText.text = FormatTime(timer);
+            SetTime(timer);
+
+            // Update environmental factors
+            SetEnvironmentalFactors(
+                int.Parse(noiseLevelInputField.text),
+                int.Parse(temperatureInputField.text),
+                int.Parse(lightingInputField.text));
         }
     }
 
@@ -52,6 +60,29 @@ public class ManagerCoolingFan : MonoBehaviour
     }
     void Download() {
         Debug.Log("Download");
+    }
+    public static string FormatTime(float time) {
+        int days = (int)(time / 86400);
+        time -= days * 86400;
+        int hours = (int)(time / 3600);
+        time -= hours * 3600;
+        int minutes = (int)(time / 60);
+        time -= minutes * 60;
+        int seconds = (int)time;
+        int milliseconds = (int)((time - seconds) * 1000);
+
+        return string.Format("{0:00} D\n{1:00} H\n{2:00} M\n{3:00} S\n{4:000} MS", days, hours, minutes, seconds, milliseconds);
+    }
+
+    public void SetTime(float time) {
+        runtimeCoolingFan.SetTime(timer);
+        runtimeFanSupport.SetTime(timer);
+        runtimeFanCrimping.SetTime(timer);
+    }
+    public void SetEnvironmentalFactors(int noiseLevel, int temperature, int lighting) {
+        runtimeCoolingFan.SetEnvironmentalFactors(noiseLevel, temperature, lighting);
+        runtimeFanSupport.SetEnvironmentalFactors(noiseLevel, temperature, lighting);
+        runtimeFanCrimping.SetEnvironmentalFactors(noiseLevel, temperature, lighting);
     }
 
 
