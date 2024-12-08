@@ -39,6 +39,8 @@ public class RuntimeCoolingFan : MonoBehaviour
     public TextMeshProUGUI feedbackText;
     public TextMeshProUGUI operatorEfficiencyText;
 
+    public ManagerCoolingFan manager;
+
     // state machine
     private enum State {
         GrabCoolingSubassembly,
@@ -66,6 +68,13 @@ public class RuntimeCoolingFan : MonoBehaviour
     private string csvFilePath;
     private List<int> totalScrewAttemptsList = new List<int>();
     private List<int> totalSuccessfulScrewsList = new List<int>();
+
+    public GameObject workingObject;
+    Animator objectAnim;
+
+    void Start(){
+        workingObject.SetActive(false);
+    }
 
     void Update() {
         if (runtimeStarted) {
@@ -99,12 +108,20 @@ public class RuntimeCoolingFan : MonoBehaviour
                             stateStarted = true;
                             SetFeedbackText("Grabbing cooling subassembly");
                             runtimeFanSupport.SetSubassemblyCount(-1);
+                            objectAnim = workingObject.GetComponent<Animator>();
+                            workingObject.SetActive(false);
+                            workingObject.SetActive(true);
+                            objectAnim.SetFloat("GSMultiplier", manager.speed/grabMaterialTime);
                         } else {
                             SetFeedbackText("No cooling subassemblies available");
                         }
                     } else if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.GrabFanSubassembly;
                         stateStarted = false;
+                    }
+                    else
+                    {
+                        objectAnim.SetFloat("GSMultiplier", manager.speed/grabMaterialTime);
                     }
                     break;
                 case State.GrabFanSubassembly:
@@ -114,12 +131,17 @@ public class RuntimeCoolingFan : MonoBehaviour
                             stateStarted = true;
                             SetFeedbackText("Grabbing fan subassembly");
                             runtimeFanCrimping.SetSubassemblyCount(-1);
+                            objectAnim.SetFloat("PFMultiplier", manager.speed/grabMaterialTime);
                         } else {
                             SetFeedbackText("No fan subassemblies available");
                         }
                     } else if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.Screw;
                         stateStarted = false;
+                    }
+                    else
+                    {
+                        objectAnim.SetFloat("PFMultiplier", manager.speed/grabMaterialTime);
                     }
                     break;
                 case State.Screw:
@@ -142,6 +164,7 @@ public class RuntimeCoolingFan : MonoBehaviour
                                     SetFeedbackText("Both fans screwed successfully");
                                     currentState = State.Done;
                                     screwedFanCount = 0;
+                                    objectAnim.SetTrigger("AllScrews");
                                 } 
                                 screwCount = 0;
                             }    
@@ -168,6 +191,11 @@ public class RuntimeCoolingFan : MonoBehaviour
                 instanceGenerated = false;
                 
             }
+        }
+        else if(objectAnim != null)
+        {
+            objectAnim.SetFloat("GSMultiplier", 0f);
+            objectAnim.SetFloat("PFMultiplier", 0f);
         }
     }
     public void SetRuntime(bool start) {

@@ -5,6 +5,7 @@ public class SimManagerScript : MonoBehaviour
     [HideInInspector] public int stationVal;
     public GameObject stations;
     public GameObject cameraObject;
+    public GameObject[] startUI;
 
     void Awake()
     {
@@ -18,8 +19,8 @@ public class SimManagerScript : MonoBehaviour
 
     void Update()
     {
-        cameraObject.transform.position = stations.transform.GetChild(stationVal).GetChild(0).position;
-        Debug.Log(stationVal);
+        cameraObject.transform.position = Vector3.Lerp(cameraObject.transform.position, stations.transform.GetChild(stationVal).GetChild(0).position, 2f * Time.deltaTime);
+        cameraObject.transform.rotation = Quaternion.Lerp(cameraObject.transform.rotation, stations.transform.GetChild(stationVal).GetChild(0).rotation, 1.75f * Time.deltaTime);
     }
 
     public void IncreaseStationVal()
@@ -29,6 +30,7 @@ public class SimManagerScript : MonoBehaviour
         {
             stationVal = 0;
         }
+        StartUIEnable();
     }
 
     public void DecreaseStationVal()
@@ -37,6 +39,25 @@ public class SimManagerScript : MonoBehaviour
         if(stationVal < 0)
         {
             stationVal = stations.transform.childCount - 1;
+        }
+        StartUIEnable();
+    }
+
+    public void StartUIEnable()
+    {
+        if(stationVal == 0)
+        {
+            for(int i = 0; i < startUI.Length; i++)
+            {
+                startUI[i].SetActive(true);
+            }
+        }
+        else
+        {
+            for(int i = 0; i < startUI.Length; i++)
+            {
+                startUI[i].SetActive(false);
+            }
         }
     }
 }
