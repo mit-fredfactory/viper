@@ -18,6 +18,7 @@ public class ManagerCoolingFan : MonoBehaviour
 
     private float timer = 0f;
     private bool isPlaying = false;
+    public float speed;
     void Start() { 
         playButton.onClick.AddListener(Play);
         pauseButton.onClick.AddListener(Pause);
@@ -26,8 +27,9 @@ public class ManagerCoolingFan : MonoBehaviour
 
     // Update is called once per frame
     void Update() {
+        speed = float.Parse(speedAccelInputField.text);
         if (isPlaying) {
-            timer += Time.deltaTime * float.Parse(speedAccelInputField.text);
+            timer += Time.deltaTime * speed;
             timerText.text = timer.ToString("F2");
             runtimeCoolingFan.SetTime(timer);
             runtimeFanSupport.SetTime(timer);

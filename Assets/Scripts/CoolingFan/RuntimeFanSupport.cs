@@ -16,6 +16,8 @@ public class RuntimeFanSupport : MonoBehaviour
     public TextMeshProUGUI subassemblyCountText;
     public TextMeshProUGUI feedbackText;
 
+    public ManagerCoolingFan manager;
+
     // state machine
     private enum State {
         GrabFanSupport,
@@ -37,6 +39,13 @@ public class RuntimeFanSupport : MonoBehaviour
     private int subassemblyCount = 0;
     private float currentTime = 0;
 
+    public GameObject workingObject;
+    Animator objectAnim;
+
+    void Start(){
+        workingObject.SetActive(false);
+    }
+
     void Update() {
         if (runtimeStarted) {
             switch (currentState) {
@@ -47,10 +56,18 @@ public class RuntimeFanSupport : MonoBehaviour
                         m5InsertCount = 0;
                         m3InsertCount = 0;
                         SetFeedbackText("Grabbing fan support");
+                        objectAnim = workingObject.GetComponent<Animator>();
+                        workingObject.SetActive(false);
+                        workingObject.SetActive(true);
+                        objectAnim.SetFloat("GFSMultiplier", manager.speed/grabMaterialTime);
                     }
                     if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.PositionFanSupportOnJig;
                         stateStarted = false;
+                    }
+                    else
+                    {
+                        objectAnim.SetFloat("GFSMultiplier", manager.speed/grabMaterialTime);
                     }
                     break;
                 case State.PositionFanSupportOnJig:
@@ -138,6 +155,10 @@ public class RuntimeFanSupport : MonoBehaviour
                     currentState = State.GrabFanSupport;
                     break;
             }
+        }
+        else if(objectAnim != null)
+        {
+            objectAnim.SetFloat("GFSMultiplier", 0f);
         }
     }
     
