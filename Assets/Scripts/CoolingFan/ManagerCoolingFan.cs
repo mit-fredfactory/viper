@@ -1,6 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using LLMUnity;
 
 public class ManagerCoolingFan : MonoBehaviour
 {
@@ -22,10 +23,16 @@ public class ManagerCoolingFan : MonoBehaviour
     private float timer = 0f;
     private bool isPlaying = false;
     public float speed;
+    public LLMCharacter slm;
+    public TMP_InputField modelInputField;
+    public TMP_Text modelResponseText;
+    public Button modelRequestButton;
+
     void Start() { 
         playButton.onClick.AddListener(Play);
         pauseButton.onClick.AddListener(Pause);
         downloadButton.onClick.AddListener(Download);
+        modelRequestButton.onClick.AddListener(RequestModel);
     }
 
     // Update is called once per frame
@@ -61,6 +68,17 @@ public class ManagerCoolingFan : MonoBehaviour
     void Download() {
         Debug.Log("Download");
     }
+    void RequestModel() {
+        Debug.Log("Request Model");
+        string message = modelInputField.text;
+        message += "\n" + runtimeFanSupport.GetAnalysis();
+        message += "\n" + runtimeFanCrimping.GetAnalysis();
+        message += "\n" + runtimeCoolingFan.GetAnalysis();
+        slm.Chat(message, HandleReply);
+    }
+    void HandleReply(string response) {
+        modelResponseText.text = response;
+    }
     public static string FormatTime(float time) {
         int days = (int)(time / 86400);
         time -= days * 86400;
@@ -69,9 +87,8 @@ public class ManagerCoolingFan : MonoBehaviour
         int minutes = (int)(time / 60);
         time -= minutes * 60;
         int seconds = (int)time;
-        int milliseconds = (int)((time - seconds) * 1000);
 
-        return string.Format("{0:00} D\n{1:00} H\n{2:00} M\n{3:00} S\n{4:000} MS", days, hours, minutes, seconds, milliseconds);
+        return string.Format("{0:00} D\n{1:00} H\n{2:00} M\n{3:00} S", days, hours, minutes, seconds);
     }
 
     public void SetTime(float time) {

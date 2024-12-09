@@ -79,6 +79,8 @@ public class RuntimeFanSupport : MonoBehaviour
     Animator objectAnim;
     public List<GameObject> heatInserts = new List<GameObject>();
     public Animator operatorAnim;
+    private string analysisString;
+    private int analysisCount = 0;
 
     void Start(){
         workingObject.SetActive(false);
@@ -300,6 +302,10 @@ public class RuntimeFanSupport : MonoBehaviour
         Debug.Log(instance);
         using (StreamWriter writer = new StreamWriter(csvFilePath, true)) {
             writer.WriteLine(instance);
+            analysisCount++;
+            if (analysisCount % 10 == 0) {
+                analysisString += instance + "\n";
+            }
         }
     } 
     private void CreateNewCSVFile() {
@@ -307,7 +313,12 @@ public class RuntimeFanSupport : MonoBehaviour
         csvFilePath = Path.Combine(Application.persistentDataPath, $"fan_support_{timestamp}.csv");
         using (StreamWriter writer = new StreamWriter(csvFilePath, false)) {
             writer.WriteLine("Time,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate");
+            analysisString = "Cooling subassembly:\nTime,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate\n";
         }
         Debug.Log($"New CSV file created: {csvFilePath}");
+    }
+
+    public string GetAnalysis() {
+        return analysisString;
     }
 }
