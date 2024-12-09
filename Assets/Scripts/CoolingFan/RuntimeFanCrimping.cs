@@ -92,17 +92,14 @@ public class RuntimeFanCrimping : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Grabbing fan");
-                        workingObject[crimpedFanCount].SetActive(false);
                         workingObject[crimpedFanCount].SetActive(true);
                         objectAnim[crimpedFanCount].SetFloat("GFMultiplier", manager.speed/grabMaterialTime);
                     }
                     if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.GrabWire;
                         stateStarted = false;
-                    }
-                    else
-                    {
+                        SetFeedbackText("Fan in workstation, grabbing wire");
+                    } else {
                         objectAnim[crimpedFanCount].SetFloat("GFMultiplier", manager.speed/grabMaterialTime);
                     }
                     break;
@@ -110,12 +107,12 @@ public class RuntimeFanCrimping : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Grabbing wire");
                         objectAnim[crimpedFanCount].SetFloat("GWMultiplier", manager.speed/grabMaterialTime);
                     }
                     if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.CrimpWire;
                         stateStarted = false;
+                        SetFeedbackText("Crimping wire");
                     }
                     else
                     {
@@ -126,19 +123,22 @@ public class RuntimeFanCrimping : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Crimping wire");
                     }
                     if (currentTime - stateStartTime > crimpWireTime) {
                         if (Random.value < crimpWireFailRate) {
                             SetFeedbackText("Wire crimping failed, retrying with new fan");
                             currentState = State.GrabFan;
+                            workingObject[crimpedFanCount].SetActive(false);
                         } else {
-                            SetFeedbackText("Wire crimping successful");
                             crimpedFanCount++;
                             if (crimpedFanCount == 2) {
+                                SetFeedbackText("Wire crimping successful, moving subassembly");
                                 currentState = State.MoveSubassembly;
                                 crimpedFanCount = 0;
-                            }    
+                            } else {
+                                SetFeedbackText("Wire crimping successful, grabbing new fan");
+                                currentState = State.GrabFan;
+                            } 
                         }
                         stateStarted = false;
                     }
@@ -147,7 +147,6 @@ public class RuntimeFanCrimping : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Moving subassembly");
                     }
                     if (currentTime - stateStartTime > moveSubassemblyTime) {
                         currentState = State.Done;
@@ -155,7 +154,7 @@ public class RuntimeFanCrimping : MonoBehaviour
                     }
                     break;
                 case State.Done:
-                    SetFeedbackText("Fan subassembly complete");
+                    SetFeedbackText("Fan subassembly complete, grabbing fan");
                     subassemblyCount++;
                     subassemblyCountText.text = subassemblyCount.ToString();
                     currentState = State.GrabFan;

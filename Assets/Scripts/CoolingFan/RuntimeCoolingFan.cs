@@ -71,6 +71,7 @@ public class RuntimeCoolingFan : MonoBehaviour
 
     public GameObject workingObject;
     Animator objectAnim;
+    public List<GameObject> screwObjects;
 
     void Start(){
         workingObject.SetActive(false);
@@ -138,6 +139,7 @@ public class RuntimeCoolingFan : MonoBehaviour
                     } else if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.Screw;
                         stateStarted = false;
+                        SetFeedbackText("Screwing");
                     }
                     else
                     {
@@ -148,13 +150,14 @@ public class RuntimeCoolingFan : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Screwing");
+                        screwObjects[screwCount+2*screwedFanCount].SetActive(true);
                     }
                     if (currentTime - stateStartTime > screwTime) {
                         if (Random.value < screwFailRate) {
                             SetFeedbackText("Screwing failed, retrying");
                         } else {
                             SetFeedbackText("Screw successful");
+                            screwObjects[screwCount+2*screwedFanCount].SetActive(false);
                             screwCount++;
                             totalSuccessfulScrews++;
                             if (screwCount == 2) {

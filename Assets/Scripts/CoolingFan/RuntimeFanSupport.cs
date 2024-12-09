@@ -3,6 +3,7 @@ using Random = UnityEngine.Random;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using System.Collections.Generic;
 
 public class RuntimeFanSupport : MonoBehaviour
 {
@@ -64,6 +65,7 @@ public class RuntimeFanSupport : MonoBehaviour
 
     public GameObject workingObject;
     Animator objectAnim;
+    public List<GameObject> heatInserts = new List<GameObject>();
 
     void Start(){
         workingObject.SetActive(false);
@@ -102,7 +104,6 @@ public class RuntimeFanSupport : MonoBehaviour
                         m3InsertCount = 0;
                         SetFeedbackText("Grabbing fan support");
                         objectAnim = workingObject.GetComponent<Animator>();
-                        workingObject.SetActive(false);
                         workingObject.SetActive(true);
                         objectAnim.SetFloat("GFSMultiplier", manager.speed/grabMaterialTime);
                     }
@@ -146,6 +147,7 @@ public class RuntimeFanSupport : MonoBehaviour
                                 currentState = State.GrabFanSupport;
                             } else {
                                 SetFeedbackText("M5 insert successful");
+                                heatInserts[m5InsertCount].SetActive(true);
                                 m5InsertCount++;
                                 if (m5InsertCount == 2)
                                     currentState = State.M3Insert;
@@ -174,6 +176,7 @@ public class RuntimeFanSupport : MonoBehaviour
                                 currentState = State.GrabFanSupport;
                             } else {
                                 SetFeedbackText("M3 insert successful");
+                                heatInserts[2+m3InsertCount].SetActive(true);
                                 m3InsertCount++;
                                 if (m3InsertCount == 4)
                                     currentState = State.MoveSubassembly;
@@ -195,6 +198,10 @@ public class RuntimeFanSupport : MonoBehaviour
                     }
                     break;
                 case State.Done:
+                    workingObject.SetActive(false);
+                    for (int i = 0; i < heatInserts.Count; i++) {
+                        heatInserts[i].SetActive(false);
+                    }
                     SetFeedbackText("Cooling subassembly complete");
                     SetSubassemblyCount(1);
                     currentState = State.GrabFanSupport;
