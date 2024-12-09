@@ -4,6 +4,8 @@ using UnityEngine.UI;
 using TMPro;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 
 public class RuntimeFanSupport : MonoBehaviour
 {
@@ -59,13 +61,24 @@ public class RuntimeFanSupport : MonoBehaviour
     private int m5InsertCount = 0;
     private int m3InsertCount = 0;
     private int subassemblyCount = 0;
+    private int totalInsertAttempts = 0;
+    private int totalSuccessfulInserts = 0;
     private float currentTime = 0;
     private float lastTime = 0;
     private float operatorEfficiency = 0;
+    
+    // Parameters for dataset of most recent elements
+    public bool generateDataset = false;
+    private bool instanceGenerated = false;
+    private bool csvCreated = false;
+    private string csvFilePath;
+    private List<int> totalInsertAttemptsList = new List<int>();
+    private List<int> totalSuccessfulInsertsList = new List<int>();
 
     public GameObject workingObject;
     Animator objectAnim;
     public List<GameObject> heatInserts = new List<GameObject>();
+    public Animator operatorAnim;
 
     void Start(){
         workingObject.SetActive(false);
@@ -102,7 +115,6 @@ public class RuntimeFanSupport : MonoBehaviour
                         stateStarted = true;
                         m5InsertCount = 0;
                         m3InsertCount = 0;
-                        SetFeedbackText("Grabbing fan support");
                         objectAnim = workingObject.GetComponent<Animator>();
                         workingObject.SetActive(true);
                         objectAnim.SetFloat("GFSMultiplier", manager.speed/grabMaterialTime);
@@ -110,6 +122,7 @@ public class RuntimeFanSupport : MonoBehaviour
                     if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.PositionFanSupportOnJig;
                         stateStarted = false;
+                        SetFeedbackText("Fan support grabbed, positioning on jig");
                     }
                     else
                     {
@@ -120,19 +133,21 @@ public class RuntimeFanSupport : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Positioning fan support on jig");
+                        operatorAnim.SetBool("Grab", true);
                     }
                     if (currentTime - stateStartTime >
                         positionFanSupportOnJigTime) {
                         currentState = State.M5Insert;
                         stateStarted = false;
+                        SetFeedbackText("Fan support positioned, inserting M5");
+                        operatorAnim.SetBool("Grab", false);
                     }
                     break;
                 case State.M5Insert:
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Grabbing M5 insert");
+                        operatorAnim.SetBool("Grab", true);
                     }
                     if (stateStarted && currentTime - stateStartTime > 
                         grabMaterialTime) {
@@ -140,20 +155,27 @@ public class RuntimeFanSupport : MonoBehaviour
                             heatInsertStartTime = currentTime;
                             heatInsertStarted = true;
                             SetFeedbackText("Inserting M5 insert");
+                            operatorAnim.SetBool("Grab", false);
+                            operatorAnim.SetBool("Screw", true);
                         }
                         if (currentTime - heatInsertStartTime > addHeatInsertTime) {
                             if (Random.value < heatInsertFailureRate) {
                                 SetFeedbackText("M5 insert failed, subassembly to scrap");
                                 currentState = State.GrabFanSupport;
                             } else {
+                                totalSuccessfulInserts++;
                                 SetFeedbackText("M5 insert successful");
                                 heatInserts[m5InsertCount].SetActive(true);
                                 m5InsertCount++;
-                                if (m5InsertCount == 2)
+                                if (m5InsertCount == 2) {
                                     currentState = State.M3Insert;
+                                    SetFeedbackText("M5 inserts successful, inserting M3 inserts");
+                                }
                             }
+                            totalInsertAttempts++;
                             stateStarted = false;
                             heatInsertStarted = false;
+                            operatorAnim.SetBool("Screw", false);
                         }
                     }
                     break;
@@ -161,7 +183,7 @@ public class RuntimeFanSupport : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Grabbing M3 insert");
+                        operatorAnim.SetBool("Grab", true);
                     }
                     if (stateStarted && currentTime - stateStartTime > 
                         grabMaterialTime) {
@@ -169,6 +191,8 @@ public class RuntimeFanSupport : MonoBehaviour
                             heatInsertStartTime = currentTime;
                             heatInsertStarted = true;
                             SetFeedbackText("Inserting M3 insert");
+                            operatorAnim.SetBool("Grab", false);
+                            operatorAnim.SetBool("Screw", true);
                         }
                         if (currentTime - heatInsertStartTime > addHeatInsertTime) {
                             if (Random.value < heatInsertFailureRate) {
@@ -178,11 +202,14 @@ public class RuntimeFanSupport : MonoBehaviour
                                 SetFeedbackText("M3 insert successful");
                                 heatInserts[2+m3InsertCount].SetActive(true);
                                 m3InsertCount++;
-                                if (m3InsertCount == 4)
+                                if (m3InsertCount == 4) {
                                     currentState = State.MoveSubassembly;
+                                    SetFeedbackText("M3 inserts successful, moving subassembly");
+                                }
                             }
                             stateStarted = false;
                             heatInsertStarted = false;
+                            operatorAnim.SetBool("Screw", false);
                         }
                     }
                     break;
@@ -190,9 +217,9 @@ public class RuntimeFanSupport : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
-                        SetFeedbackText("Moving subassembly");
                     }
                     if (currentTime - stateStartTime > moveSubassemblyTime) {
+                        SetFeedbackText("Cooling subassembly complete");
                         currentState = State.Done;
                         stateStarted = false;
                     }
@@ -202,10 +229,20 @@ public class RuntimeFanSupport : MonoBehaviour
                     for (int i = 0; i < heatInserts.Count; i++) {
                         heatInserts[i].SetActive(false);
                     }
-                    SetFeedbackText("Cooling subassembly complete");
                     SetSubassemblyCount(1);
                     currentState = State.GrabFanSupport;
                     break;
+            }
+
+            // Generate dataset
+            if (generateDataset && (int)currentTime % 60 == 0) {
+                if (!instanceGenerated) {
+                    AddDataInstance();
+                    instanceGenerated = true;
+                }
+            } else {
+                instanceGenerated = false;
+                
             }
         }
         else if(objectAnim != null)
@@ -234,5 +271,43 @@ public class RuntimeFanSupport : MonoBehaviour
         noiseLevel = noise;
         temperature = temp;
         lighting = light;
+    }
+    public void AddDataInstance() {
+        if (!csvCreated) {
+            CreateNewCSVFile();
+            csvCreated = true;
+        }
+        // if list index is higher than 10, substract the element 10 steps ago from the total
+        totalInsertAttemptsList.Add(totalInsertAttempts);
+        totalSuccessfulInsertsList.Add(totalSuccessfulInserts);
+        int recentTotalInsertAttempts = totalInsertAttemptsList.Count > 10 ? 
+            totalInsertAttemptsList.Last() - 
+            totalInsertAttemptsList[totalInsertAttemptsList.Count-10] 
+            : totalInsertAttemptsList.Last();
+        int recentTotalSuccessfulInserts = totalSuccessfulInsertsList.Count > 10 ?
+            totalSuccessfulInsertsList.Last() - 
+            totalSuccessfulInsertsList[totalSuccessfulInsertsList.Count-10] 
+            : totalSuccessfulInsertsList.Last();
+        if (recentTotalInsertAttempts == 0) {
+            Debug.Log("No screw attempts in the last minute");
+            return;
+        }
+        float successRate = (float)recentTotalSuccessfulInserts / recentTotalInsertAttempts;
+        string instance = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",
+            currentTime, age, experienceInYears, trainingLevel, attentionLevel,
+            cognitiveLoad, learningCurve, stressLevel, fatigueLevel, motivationLevel,
+            ergonomicRating, noiseLevel, temperature, lighting, successRate);
+        Debug.Log(instance);
+        using (StreamWriter writer = new StreamWriter(csvFilePath, true)) {
+            writer.WriteLine(instance);
+        }
+    } 
+    private void CreateNewCSVFile() {
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        csvFilePath = Path.Combine(Application.persistentDataPath, $"fan_support_{timestamp}.csv");
+        using (StreamWriter writer = new StreamWriter(csvFilePath, false)) {
+            writer.WriteLine("Time,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate");
+        }
+        Debug.Log($"New CSV file created: {csvFilePath}");
     }
 }

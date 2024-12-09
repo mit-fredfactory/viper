@@ -68,6 +68,7 @@ public class RuntimeCoolingFan : MonoBehaviour
     private string csvFilePath;
     private List<int> totalScrewAttemptsList = new List<int>();
     private List<int> totalSuccessfulScrewsList = new List<int>();
+    public Animator operatorAnim;
 
     public GameObject workingObject;
     Animator objectAnim;
@@ -151,6 +152,7 @@ public class RuntimeCoolingFan : MonoBehaviour
                         stateStartTime = currentTime;
                         stateStarted = true;
                         screwObjects[screwCount+2*screwedFanCount].SetActive(true);
+                        operatorAnim.SetBool("Screw", true);
                     }
                     if (currentTime - stateStartTime > screwTime) {
                         if (Random.value < screwFailRate) {
@@ -174,6 +176,7 @@ public class RuntimeCoolingFan : MonoBehaviour
                         }
                         totalScrewAttempts++;
                         stateStarted = false;
+                        operatorAnim.SetBool("Screw", false);
                     }
                     break;
                 case State.Done:
@@ -192,7 +195,6 @@ public class RuntimeCoolingFan : MonoBehaviour
                 }
             } else {
                 instanceGenerated = false;
-                
             }
         }
         else if(objectAnim != null)

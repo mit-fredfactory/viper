@@ -3,6 +3,9 @@ using Random = UnityEngine.Random;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 
 public class RuntimeFanCrimping : MonoBehaviour
 {
@@ -54,9 +57,19 @@ public class RuntimeFanCrimping : MonoBehaviour
     private bool stateStarted;
     private int crimpedFanCount = 0;
     private int subassemblyCount = 0;
+    private int totalCrimpAttempts = 0;
+    private int totalSuccessfulCrimps = 0;
     private float currentTime = 0;
     private float lastTime = 0;
     private float operatorEfficiency = 0;
+    // Parameters for dataset of most recent elements
+    public bool generateDataset = false;
+    private bool instanceGenerated = false;
+    private bool csvCreated = false;
+    private string csvFilePath;
+    private List<int> totalCrimpAttemptsList = new List<int>();
+    private List<int> totalSuccessfulCrimpsList = new List<int>();
+    public Animator operatorAnim;
 
     void Start(){
         workingObject[0].SetActive(false);
@@ -108,11 +121,13 @@ public class RuntimeFanCrimping : MonoBehaviour
                         stateStartTime = currentTime;
                         stateStarted = true;
                         objectAnim[crimpedFanCount].SetFloat("GWMultiplier", manager.speed/grabMaterialTime);
+                        operatorAnim.SetBool("Grab", true);
                     }
                     if (currentTime - stateStartTime > grabMaterialTime) {
                         currentState = State.CrimpWire;
                         stateStarted = false;
                         SetFeedbackText("Crimping wire");
+                        operatorAnim.SetBool("Grab", false);
                     }
                     else
                     {
@@ -123,6 +138,7 @@ public class RuntimeFanCrimping : MonoBehaviour
                     if (!stateStarted) {
                         stateStartTime = currentTime;
                         stateStarted = true;
+                        operatorAnim.SetBool("Screw", true);
                     }
                     if (currentTime - stateStartTime > crimpWireTime) {
                         if (Random.value < crimpWireFailRate) {
@@ -130,6 +146,7 @@ public class RuntimeFanCrimping : MonoBehaviour
                             currentState = State.GrabFan;
                             workingObject[crimpedFanCount].SetActive(false);
                         } else {
+                            totalSuccessfulCrimps++;
                             crimpedFanCount++;
                             if (crimpedFanCount == 2) {
                                 SetFeedbackText("Wire crimping successful, moving subassembly");
@@ -140,7 +157,9 @@ public class RuntimeFanCrimping : MonoBehaviour
                                 currentState = State.GrabFan;
                             } 
                         }
+                        totalCrimpAttempts++;
                         stateStarted = false;
+                        operatorAnim.SetBool("Screw", false);
                     }
                     break;
                 case State.MoveSubassembly:
@@ -161,6 +180,17 @@ public class RuntimeFanCrimping : MonoBehaviour
                     workingObject[0].SetActive(false);
                     workingObject[1].SetActive(false);
                     break;
+            }
+
+            // Generate dataset
+            if (generateDataset && (int)currentTime % 60 == 0) {
+                if (!instanceGenerated) {
+                    AddDataInstance();
+                    instanceGenerated = true;
+                }
+            } else {
+                instanceGenerated = false;
+                
             }
         }
         else if(objectAnim[crimpedFanCount] != null)
@@ -189,5 +219,43 @@ public class RuntimeFanCrimping : MonoBehaviour
         noiseLevel = noise;
         temperature = temp;
         lighting = light;
+    }
+    public void AddDataInstance() {
+        if (!csvCreated) {
+            CreateNewCSVFile();
+            csvCreated = true;
+        }
+        // if list index is higher than 10, substract the element 10 steps ago from the total
+        totalCrimpAttemptsList.Add(totalCrimpAttempts);
+        totalSuccessfulCrimpsList.Add(totalSuccessfulCrimps);
+        int recentTotalCrimpAttempts = totalCrimpAttemptsList.Count > 10 ? 
+            totalCrimpAttemptsList.Last() - 
+            totalCrimpAttemptsList[totalCrimpAttemptsList.Count-10] 
+            : totalCrimpAttemptsList.Last();
+        int recentTotalSuccessfulCrimps = totalSuccessfulCrimpsList.Count > 10 ?
+            totalSuccessfulCrimpsList.Last() -
+            totalSuccessfulCrimpsList[totalSuccessfulCrimpsList.Count-10]
+            : totalSuccessfulCrimpsList.Last();
+        if (recentTotalCrimpAttempts == 0) {
+            Debug.Log("No screw attempts in the last minute");
+            return;
+        }
+        float successRate = (float)recentTotalSuccessfulCrimps / recentTotalCrimpAttempts;
+        string instance = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",
+            currentTime, age, experienceInYears, trainingLevel, attentionLevel,
+            cognitiveLoad, learningCurve, stressLevel, fatigueLevel, motivationLevel,
+            ergonomicRating, noiseLevel, temperature, lighting, successRate);
+        Debug.Log(instance);
+        using (StreamWriter writer = new StreamWriter(csvFilePath, true)) {
+            writer.WriteLine(instance);
+        }
+    } 
+    private void CreateNewCSVFile() {
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        csvFilePath = Path.Combine(Application.persistentDataPath, $"fan_crimping_{timestamp}.csv");
+        using (StreamWriter writer = new StreamWriter(csvFilePath, false)) {
+            writer.WriteLine("Time,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate");
+        }
+        Debug.Log($"New CSV file created: {csvFilePath}");
     }
 }
