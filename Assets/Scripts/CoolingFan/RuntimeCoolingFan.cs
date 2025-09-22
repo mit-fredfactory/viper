@@ -1,0 +1,316 @@
+using UnityEngine;
+using Random = UnityEngine.Random;
+using UnityEngine.UI;
+using TMPro;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.IO;
+
+public class RuntimeCoolingFan : MonoBehaviour
+{
+    public float grabMaterialTime = 2f;
+    public float screwTime = 8f;
+    public float screwFailRate = 0.2f;
+
+    [Header("Operator Parameters")]
+    public OperatorParams operatorParams;
+    
+    [Header("Environmental factors")]
+    public int noiseLevel;
+    public int temperature;
+    public int lighting;
+    
+    [Header("Process factors")]
+    public int ergonomicRating = 7;
+    
+    public bool runtimeStarted = false;
+    public bool onBreak = false;
+    
+    public RuntimeFanSupport runtimeFanSupport;
+    public RuntimeFanCrimping runtimeFanCrimping;
+    public TextMeshProUGUI subassemblyCountText;
+    public TextMeshProUGUI feedbackText;
+    public TextMeshProUGUI operatorEfficiencyText;
+
+    public ManagerCoolingFan manager;
+
+    // state machine
+    private enum State {
+        GrabCoolingSubassembly,
+        GrabFanSubassembly,
+        Screw,
+        Done
+    }
+
+    private State currentState = State.GrabCoolingSubassembly;
+    private float stateStartTime;
+    private bool stateStarted;
+    private int screwCount = 0;
+    private int screwedFanCount = 0;
+    private int subassemblyCount = 0;
+    private int totalScrewAttempts = 0;
+    private int totalSuccessfulScrews = 0;
+    private float currentTime = 0;
+    private float lastTime = 0;
+    private float operatorEfficiency = 0;
+
+    // Parameters for dataset of most recent elements
+    public bool generateDataset = false;
+    private bool instanceGenerated = false;
+    private bool csvCreated = false;
+    private string csvFilePath;
+    private List<int> totalScrewAttemptsList = new List<int>();
+    private List<int> totalSuccessfulScrewsList = new List<int>();
+    public Animator operatorAnim;
+    public GameObject workingObject;
+    Animator objectAnim;
+    public List<GameObject> screwObjects;
+    private string analysisString;
+    private int analysisCount = 0;
+    private int grabbedFanSupportCount = 0;
+    private int grabbedFanCrimpingCount = 0;
+
+    void Start(){
+        workingObject.SetActive(false);
+        
+        // Initialize operator parameters if not already set
+        if (operatorParams == null)
+        {
+            operatorParams = new OperatorParams();
+        }
+    }
+
+    void Update() {
+        if (runtimeStarted) {
+            float deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            // Update operator parameters based on whether they're on break or working
+            if (onBreak) {
+                operatorParams.UpdateRestingParams(deltaTime);
+                
+                // While on break, animate the operator resting if possible
+                // Add any specific animations here
+                
+                SetFeedbackText("Operator on break");
+            } 
+            else {
+                // Update operator parameters for working state
+                float multiplier = 0.0001f * deltaTime;
+                operatorParams.UpdateWorkingParams(deltaTime, multiplier);
+                
+                // Calculate operator efficiency
+                operatorEfficiency = operatorParams.CalculateEfficiency(noiseLevel, temperature, lighting, ergonomicRating);
+                operatorEfficiencyText.text = operatorEfficiency.ToString();
+                screwFailRate = 0.08f + (100 - operatorEfficiency) * 0.003f;
+                
+                // Only process the state machine if not on break
+                ProcessStateMachine();
+            }
+
+            // Generate dataset
+            if (generateDataset && (int)currentTime % 60 == 0) {
+                if (!instanceGenerated) {
+                    AddDataInstance();
+                    instanceGenerated = true;
+                }
+            } else {
+                instanceGenerated = false;
+            }
+        }
+        else if(objectAnim != null)
+        {
+            objectAnim.SetFloat("GSMultiplier", 0f);
+        }
+    }
+    
+    private void ProcessStateMachine() {
+        switch (currentState) {
+            case State.GrabCoolingSubassembly:
+                if (!stateStarted) {
+                    if (runtimeFanSupport.GetSubassemblyCount() > grabbedFanSupportCount) {
+                        stateStartTime = currentTime;
+                        stateStarted = true;
+                        SetFeedbackText("Grabbing cooling subassembly");
+                        grabbedFanSupportCount++;
+                        // runtimeFanSupport.SetSubassemblyCount(-1);
+                        objectAnim = workingObject.GetComponent<Animator>();
+                        workingObject.SetActive(false);
+                        workingObject.SetActive(true);
+                        objectAnim.SetFloat("GSMultiplier", manager.speed/grabMaterialTime);
+                    } else {
+                        SetFeedbackText("No cooling subassemblies available");
+                    }
+                } else if (currentTime - stateStartTime > grabMaterialTime) {
+                    currentState = State.GrabFanSubassembly;
+                    stateStarted = false;
+                }
+                else
+                {
+                    objectAnim.SetFloat("GSMultiplier", manager.speed/grabMaterialTime);
+                }
+                break;
+            case State.GrabFanSubassembly:
+                if (!stateStarted) {
+                    if (runtimeFanCrimping.GetSubassemblyCount() > grabbedFanCrimpingCount) {
+                        stateStartTime = currentTime;
+                        stateStarted = true;
+                        SetFeedbackText("Grabbing fan subassembly");
+                        grabbedFanCrimpingCount++;
+                        // runtimeFanCrimping.SetSubassemblyCount(-1);
+                        objectAnim.SetFloat("PFMultiplier", manager.speed/grabMaterialTime);
+                    } else {
+                        SetFeedbackText("No fan subassemblies available");
+                    }
+                } else if (currentTime - stateStartTime > grabMaterialTime) {
+                    currentState = State.Screw;
+                    stateStarted = false;
+                    SetFeedbackText("Screwing");
+                }
+                else
+                {
+                    objectAnim.SetFloat("PFMultiplier", manager.speed/grabMaterialTime);
+                }
+                break;
+            case State.Screw:
+                if (!stateStarted) {
+                    stateStartTime = currentTime;
+                    stateStarted = true;
+                    screwObjects[screwCount].SetActive(true);
+                    operatorAnim.SetBool("Screw", true);
+                } else if (currentTime - stateStartTime > screwTime) {
+                    totalScrewAttempts++;
+                    if (Random.value < screwFailRate) {
+                        SetFeedbackText("Screwdriving failed, retrying");
+                    } else {
+                        totalSuccessfulScrews++;
+                        screwObjects[screwCount].SetActive(false);
+                        screwCount++;
+                        if (screwCount == 4) {
+                            screwCount = 0;
+                            SetFeedbackText("Fan assembly completed");
+                            screwedFanCount++;
+                            currentState = State.Done;
+                            objectAnim.SetTrigger("AllScrews");
+                        } else {
+                            SetFeedbackText("Screw " + screwCount + " successful");
+                            currentState = State.Screw;
+                        }
+                    }
+                    stateStarted = false;
+                }
+                else
+                {
+                    operatorAnim.SetBool("Screw", false);
+                }
+                break;
+            case State.Done:
+                workingObject.SetActive(false);
+                SetSubassemblyCount(1);
+                currentState = State.GrabCoolingSubassembly;
+                break;
+        }
+    }
+    
+    public void SetBreakStatus(bool isOnBreak) {
+        onBreak = isOnBreak;
+        if (isOnBreak) {
+            SetFeedbackText("Operator taking a break");
+            // Pause any ongoing work
+            if (workingObject.activeSelf) {
+                // Don't hide the object but pause the animation
+                if (objectAnim != null) {
+                    objectAnim.SetFloat("GSMultiplier", 0f);
+                    objectAnim.SetFloat("PFMultiplier", 0f);
+                    operatorAnim.SetBool("Screw", false);
+                }
+            }
+        } else {
+            SetFeedbackText("Operator resumed work");
+            // Resume animation if needed
+            if (workingObject.activeSelf && objectAnim != null) {
+                objectAnim.SetFloat("GSMultiplier", 0f);
+                objectAnim.SetFloat("PFMultiplier", 0f);
+                operatorAnim.SetBool("Screw", false);
+            }
+        }
+    }
+    
+    public void SetRuntime(bool start) {
+        runtimeStarted = start;
+    }
+    
+    public void SetTime(float time) {
+        currentTime = time;
+    }
+    
+    public int GetSubassemblyCount() {
+        return subassemblyCount;
+    }
+    
+    public void SetSubassemblyCount(int sign) {
+        subassemblyCount += sign;
+        subassemblyCountText.text = subassemblyCount.ToString();
+    }
+    
+    public void SetFeedbackText(string text) {
+        feedbackText.text = text;
+    }
+    
+    public void SetEnvironmentalFactors(int noise, int temp, int light) {
+        noiseLevel = noise;
+        temperature = temp;
+        lighting = light;
+    }
+    
+    public void AddDataInstance() {
+        if (!csvCreated) {
+            CreateNewCSVFile();
+            csvCreated = true;
+        }
+        // if list index is higher than 10, substract the element 10 steps ago from the total
+        totalScrewAttemptsList.Add(totalScrewAttempts);
+        totalSuccessfulScrewsList.Add(totalSuccessfulScrews);
+        int recentTotalScrewAttempts = totalScrewAttemptsList.Count > 10 ? 
+            totalScrewAttemptsList.Last() - 
+            totalScrewAttemptsList[totalScrewAttemptsList.Count-10] 
+            : totalScrewAttemptsList.Last();
+        int recentTotalSuccessfulScrews = totalSuccessfulScrewsList.Count > 10 ?
+            totalSuccessfulScrewsList.Last() - 
+            totalSuccessfulScrewsList[totalSuccessfulScrewsList.Count-10] 
+            : totalSuccessfulScrewsList.Last();
+        if (recentTotalScrewAttempts == 0) {
+            Debug.Log("No screw attempts in the last minute");
+            return;
+        }
+        float successRate = (float)recentTotalSuccessfulScrews / recentTotalScrewAttempts;
+        string instance = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}",
+            currentTime, operatorParams.age, operatorParams.experienceInYears, operatorParams.trainingLevel, 
+            operatorParams.attentionLevel, operatorParams.cognitiveLoad, operatorParams.learningCurve, 
+            operatorParams.stressLevel, operatorParams.fatigueLevel, operatorParams.motivationLevel,
+            ergonomicRating, noiseLevel, temperature, lighting, successRate, onBreak ? 1 : 0);
+        Debug.Log(instance);
+        using (StreamWriter writer = new StreamWriter(csvFilePath, true)) {
+            writer.WriteLine(instance);
+            analysisCount++;
+            if (analysisCount % 10 == 0) {
+                analysisString += instance + "\n";
+            }
+        }
+    }
+    
+    private void CreateNewCSVFile() {
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        csvFilePath = Path.Combine(Application.persistentDataPath, $"cooling_fan_{timestamp}.csv");
+        using (StreamWriter writer = new StreamWriter(csvFilePath, false)) {
+            writer.WriteLine("Time,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate,On Break");
+            analysisString = "Cooling Fan Assembly:\nTime,Age,Experience,Training,Attention,Cognitive load,Learning curve,Stress,Fatigue,Motivation,Ergonomic rating,Noise,Temperature,Lighting,Success rate,On Break\n";
+        }
+        Debug.Log($"New CSV file created: {csvFilePath}");
+    }
+    
+    public string GetAnalysis() {
+        return analysisString;
+    }
+}
