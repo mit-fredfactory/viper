@@ -15,24 +15,17 @@ public class RuntimeFanCrimping : MonoBehaviour
     public float moveSubassemblyTime = 5f;
 
     [Header("Operator Parameters")]
-    [Header("Demographic information")]
-    public int age;
-    public int experienceInYears;
-    public int trainingLevel;
-    [Header("Cognitive factors")]
-    public float attentionLevel;
-    public float cognitiveLoad;
-    public float learningCurve;
-    [Header("Physiological factors")]
-    public float ergonomicRating;
-    public float stressLevel;
-    public float fatigueLevel;
-    public float motivationLevel;
+    public OperatorParams operatorParams;
     [Header("Environmental factors")]
     public int noiseLevel;
     public int temperature;
     public int lighting;
+    
+    [Header("Process factors")]
+    public int ergonomicRating = 7;
+    
     public bool runtimeStarted = false;
+    public bool onBreak = false;
     
     public TextMeshProUGUI subassemblyCountText;
     public TextMeshProUGUI feedbackText;
@@ -55,8 +48,11 @@ public class RuntimeFanCrimping : MonoBehaviour
     private State currentState = State.GrabFan;
     private float stateStartTime;
     private bool stateStarted;
+    private float crimpWireStartTime;
+    private bool crimpWireStarted;
     private int crimpedFanCount = 0;
     private int subassemblyCount = 0;
+    private int failedSubassemblyCount = 0;
     private int totalCrimpAttempts = 0;
     private int totalSuccessfulCrimps = 0;
     private float currentTime = 0;
@@ -76,112 +72,37 @@ public class RuntimeFanCrimping : MonoBehaviour
     void Start(){
         workingObject[0].SetActive(false);
         workingObject[1].SetActive(false);
+        // Initialize operator parameters if not already set
+        if (operatorParams == null)
+        {
+            operatorParams = new OperatorParams();
+        }
     }
 
     void Update() {
         if (runtimeStarted) {
             float deltaTime = currentTime - lastTime;
             lastTime = currentTime;
-            // Determine operator efficiency based on operator parameters maximum
-            // efficiency is 100% and minimum efficiency is 0%
-            float multiplier = 0.0001f * deltaTime;
-            attentionLevel = Math.Clamp(attentionLevel-multiplier, 0, 10);
-            cognitiveLoad = Math.Clamp(cognitiveLoad+multiplier, 0, 10);
-            learningCurve = Math.Clamp(learningCurve-multiplier*5, 0, 10);
-            stressLevel = Math.Clamp(stressLevel+multiplier, 0, 10);
-            fatigueLevel = Math.Clamp(fatigueLevel+multiplier, 0, 10);
-            motivationLevel = Math.Clamp(motivationLevel-multiplier, 0, 10);
-
-            operatorEfficiency = 60 + 1 * (35-age) + 1 * experienceInYears + 2 * trainingLevel +
-                1 * attentionLevel - 1 * cognitiveLoad - 1 * learningCurve - 1 * stressLevel -
-                1 * fatigueLevel + 1 * motivationLevel + 1 * ergonomicRating +
-                1 * (70-noiseLevel) -
-                1 * Math.Abs(20-temperature) - 0.2f * Math.Abs(70-lighting);
-            //Debug.Log("Operator efficiency: " + operatorEfficiency);
-            operatorEfficiency = Mathf.Clamp(operatorEfficiency, 0, 100);
-            operatorEfficiencyText.text = operatorEfficiency.ToString();
-            crimpWireFailRate = 0.08f + (100 - operatorEfficiency) * 0.003f;
-
-            switch (currentState) {
-                case State.GrabFan:
-                    if (!stateStarted) {
-                        stateStartTime = currentTime;
-                        stateStarted = true;
-                        workingObject[crimpedFanCount].SetActive(true);
-                        objectAnim[crimpedFanCount].SetFloat("GFMultiplier", manager.speed/grabMaterialTime);
-                    }
-                    if (currentTime - stateStartTime > grabMaterialTime) {
-                        currentState = State.GrabWire;
-                        stateStarted = false;
-                        SetFeedbackText("Fan in workstation, grabbing wire");
-                    } else {
-                        objectAnim[crimpedFanCount].SetFloat("GFMultiplier", manager.speed/grabMaterialTime);
-                    }
-                    break;
-                case State.GrabWire:
-                    if (!stateStarted) {
-                        stateStartTime = currentTime;
-                        stateStarted = true;
-                        objectAnim[crimpedFanCount].SetFloat("GWMultiplier", manager.speed/grabMaterialTime);
-                        operatorAnim.SetBool("Grab", true);
-                    }
-                    if (currentTime - stateStartTime > grabMaterialTime) {
-                        currentState = State.CrimpWire;
-                        stateStarted = false;
-                        SetFeedbackText("Crimping wire");
-                        operatorAnim.SetBool("Grab", false);
-                    }
-                    else
-                    {
-                        objectAnim[crimpedFanCount].SetFloat("GWMultiplier", manager.speed/grabMaterialTime);
-                    }
-                    break;
-                case State.CrimpWire:
-                    if (!stateStarted) {
-                        stateStartTime = currentTime;
-                        stateStarted = true;
-                        operatorAnim.SetBool("Screw", true);
-                    }
-                    if (currentTime - stateStartTime > crimpWireTime) {
-                        if (Random.value < crimpWireFailRate) {
-                            SetFeedbackText("Wire crimping failed, retrying with new fan");
-                            currentState = State.GrabFan;
-                            workingObject[crimpedFanCount].SetActive(false);
-                        } else {
-                            totalSuccessfulCrimps++;
-                            crimpedFanCount++;
-                            if (crimpedFanCount == 2) {
-                                SetFeedbackText("Wire crimping successful, moving subassembly");
-                                currentState = State.MoveSubassembly;
-                                crimpedFanCount = 0;
-                            } else {
-                                SetFeedbackText("Wire crimping successful, grabbing new fan");
-                                currentState = State.GrabFan;
-                            } 
-                        }
-                        totalCrimpAttempts++;
-                        stateStarted = false;
-                        operatorAnim.SetBool("Screw", false);
-                    }
-                    break;
-                case State.MoveSubassembly:
-                    if (!stateStarted) {
-                        stateStartTime = currentTime;
-                        stateStarted = true;
-                    }
-                    if (currentTime - stateStartTime > moveSubassemblyTime) {
-                        currentState = State.Done;
-                        stateStarted = false;
-                    }
-                    break;
-                case State.Done:
-                    SetFeedbackText("Fan subassembly complete, grabbing fan");
-                    subassemblyCount++;
-                    subassemblyCountText.text = subassemblyCount.ToString();
-                    currentState = State.GrabFan;
-                    workingObject[0].SetActive(false);
-                    workingObject[1].SetActive(false);
-                    break;
+            
+            // Update operator parameters based on whether they're on break or working
+            if (onBreak) {
+                operatorParams.UpdateRestingParams(deltaTime);
+                
+                // While on break, animate the operator resting if possible
+                SetFeedbackText("Operator on break");
+            } 
+            else {
+                // Update operator parameters for working state
+                float multiplier = 0.0001f * deltaTime;
+                operatorParams.UpdateWorkingParams(deltaTime, multiplier);
+                
+                // Calculate operator efficiency
+                operatorEfficiency = operatorParams.CalculateEfficiency(noiseLevel, temperature, lighting, ergonomicRating);
+                operatorEfficiencyText.text = operatorEfficiency.ToString();
+                crimpWireFailRate = 0.08f + (100 - operatorEfficiency) * 0.003f;
+                
+                // Only process the state machine if not on break
+                ProcessStateMachine();
             }
 
             // Generate dataset
@@ -201,27 +122,132 @@ public class RuntimeFanCrimping : MonoBehaviour
             objectAnim[crimpedFanCount].SetFloat("GWMultiplier", 0f);
         }
     }
+
+    private void ProcessStateMachine() {
+        switch (currentState) {
+            case State.GrabFan:
+                if (!stateStarted) {
+                    stateStartTime = currentTime;
+                    stateStarted = true;
+                    workingObject[crimpedFanCount].SetActive(true);
+                    objectAnim[crimpedFanCount].SetFloat("GFMultiplier", manager.speed/grabMaterialTime);
+                }
+                if (currentTime - stateStartTime > grabMaterialTime) {
+                    currentState = State.GrabWire;
+                    stateStarted = false;
+                    SetFeedbackText("Fan in workstation, grabbing wire");
+                } else {
+                    objectAnim[crimpedFanCount].SetFloat("GFMultiplier", manager.speed/grabMaterialTime);
+                }
+                break;
+            case State.GrabWire:
+                if (!stateStarted) {
+                    stateStartTime = currentTime;
+                    stateStarted = true;
+                    objectAnim[crimpedFanCount].SetFloat("GWMultiplier", manager.speed/grabMaterialTime);
+                    operatorAnim.SetBool("Grab", true);
+                }
+                if (currentTime - stateStartTime > grabMaterialTime) {
+                    currentState = State.CrimpWire;
+                    stateStarted = false;
+                    SetFeedbackText("Crimping wire");
+                    operatorAnim.SetBool("Grab", false);
+                }
+                else
+                {
+                    objectAnim[crimpedFanCount].SetFloat("GWMultiplier", manager.speed/grabMaterialTime);
+                }
+                break;
+            case State.CrimpWire:
+                if (!stateStarted) {
+                    stateStartTime = currentTime;
+                    stateStarted = true;
+                    operatorAnim.SetBool("Screw", true);
+                }
+                if (currentTime - stateStartTime > crimpWireTime) {
+                    if (Random.value < crimpWireFailRate) {
+                        failedSubassemblyCount++;
+                        SetFeedbackText("Wire crimping failed, retrying with new fan");
+                        currentState = State.GrabFan;
+                        workingObject[crimpedFanCount].SetActive(false);
+                    } else {
+                        totalSuccessfulCrimps++;
+                        crimpedFanCount++;
+                        if (crimpedFanCount == 2) {
+                            SetFeedbackText("Wire crimping successful, moving subassembly");
+                            currentState = State.MoveSubassembly;
+                            crimpedFanCount = 0;
+                        } else {
+                            SetFeedbackText("Wire crimping successful, grabbing new fan");
+                            currentState = State.GrabFan;
+                        } 
+                    }
+                    totalCrimpAttempts++;
+                    stateStarted = false;
+                    operatorAnim.SetBool("Screw", false);
+                }
+                break;
+            case State.MoveSubassembly:
+                if (!stateStarted) {
+                    stateStartTime = currentTime;
+                    stateStarted = true;
+                }
+                if (currentTime - stateStartTime > moveSubassemblyTime) {
+                    currentState = State.Done;
+                    stateStarted = false;
+                }
+                break;
+            case State.Done:
+                SetFeedbackText("Fan subassembly complete, grabbing fan");
+                subassemblyCount++;
+                subassemblyCountText.text = subassemblyCount.ToString();
+                currentState = State.GrabFan;
+                workingObject[0].SetActive(false);
+                workingObject[1].SetActive(false);
+                break;
+        }
+    }
+
+    public void SetBreakStatus(bool isOnBreak) {
+        onBreak = isOnBreak;
+        if (isOnBreak) {
+            SetFeedbackText("Operator taking a break");
+            // Pause any ongoing work similar to RuntimeFanSupport
+        } else {
+            SetFeedbackText("Operator resumed work");
+            // Resume animation if needed
+        }
+    }
+    
     public void SetRuntime(bool start) {
         runtimeStarted = start;
     }
+
     public void SetTime(float time) {
         currentTime = time;
     }
+
     public int GetSubassemblyCount() {
         return subassemblyCount;
     }
+
     public void SetSubassemblyCount(int sign) {
         subassemblyCount += sign;
-        subassemblyCountText.text = subassemblyCount.ToString();
+        // show successful divided by failed in format "successful/int(failed/2)"
+        int dividedFailedSubassemblyCount = failedSubassemblyCount / 2;
+        subassemblyCountText.text = $"{subassemblyCount}/{dividedFailedSubassemblyCount}";
     }
+
     public void SetFeedbackText(string text) {
         feedbackText.text = text;
     }
+
     public void SetEnvironmentalFactors(int noise, int temp, int light) {
         noiseLevel = noise;
         temperature = temp;
         lighting = light;
     }
+
     public void AddDataInstance() {
         if (!csvCreated) {
             CreateNewCSVFile();
@@ -244,8 +270,8 @@ public class RuntimeFanCrimping : MonoBehaviour
         }
         float successRate = (float)recentTotalSuccessfulCrimps / recentTotalCrimpAttempts;
         string instance = string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14}",
-            currentTime, age, experienceInYears, trainingLevel, attentionLevel,
-            cognitiveLoad, learningCurve, stressLevel, fatigueLevel, motivationLevel,
+            currentTime, operatorParams.age, operatorParams.experienceInYears, operatorParams.trainingLevel, operatorParams.attentionLevel,
+            operatorParams.cognitiveLoad, operatorParams.learningCurve, operatorParams.stressLevel, operatorParams.fatigueLevel, operatorParams.motivationLevel,
             ergonomicRating, noiseLevel, temperature, lighting, successRate);
         Debug.Log(instance);
         using (StreamWriter writer = new StreamWriter(csvFilePath, true)) {
