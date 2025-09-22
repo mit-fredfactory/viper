@@ -5,7 +5,7 @@ public class SimManagerScript : MonoBehaviour
     [HideInInspector] public int stationVal;
     public GameObject stations;
     public GameObject cameraObject;
-    public GameObject[] startUI;
+    //public GameObject[] startUI;
 
     void Awake()
     {
@@ -30,7 +30,7 @@ public class SimManagerScript : MonoBehaviour
         {
             stationVal = 0;
         }
-        StartUIEnable();
+        //StartUIEnable();
     }
 
     public void DecreaseStationVal()
@@ -40,10 +40,10 @@ public class SimManagerScript : MonoBehaviour
         {
             stationVal = stations.transform.childCount - 1;
         }
-        StartUIEnable();
+        //StartUIEnable();
     }
 
-    public void StartUIEnable()
+    /*public void StartUIEnable()
     {
         if(stationVal == 0)
         {
@@ -59,5 +59,5 @@ public class SimManagerScript : MonoBehaviour
                 startUI[i].SetActive(false);
             }
         }
-    }
+    }*/
 }
