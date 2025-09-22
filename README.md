@@ -2,7 +2,7 @@
 
 ## Setup
 
-The project is built using LTS [**Unity 2022.3.50f1**](https://unity.com/releases/editor/whats-new/2022.3.50). Select the proper installation for the OS.
+The project is built using LTS **Unity 6000.0.44f1**. Select the proper installation for the OS.
 
 **Git** is required to collaborate and have the latest version of the code, install it from [here](https://git-scm.com/download/win). When the installer is opened, click `Next` for the default installation until it is finished.
 
