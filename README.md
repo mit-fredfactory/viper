@@ -4,7 +4,7 @@
 
 VIPER is an immersive VR simulation framework for visualizing factory operations, featuring a neural network trained on simulated data to predict KPIs, and an integrated LLM to analyze predictions and suggest actionable improvements via natural language within the VR interface.
 
-![Framework Diagram](/images/projects/immersive-cog-factory-twin-framework-diagram.png)
+![Case Study Process](https://github.com/user-attachments/assets/e373042a-3833-4172-a24f-d18a265791ba)
 
 Simulation experiments demonstrated **29% production improvement** and **36% waste reduction** compared to traditional training methods. This framework empowers managers with real-time, actionable insights for substantial gains in factory efficiency and resource optimization.
 
@@ -20,7 +20,7 @@ The system consists of three main components:
 2. **Neural Network Predictions** - KPI prediction trained on simulated data
 3. **LLM Analysis** - Natural language analysis and recommendations within the VR interface
 
-![Case Study Process](/images/projects/immersive-cog-factory-twin-case-study-process.png)
+![Framework Diagram](https://github.com/user-attachments/assets/6658508e-06f9-43a7-b69d-627c95e65488)
 
 ## Architecture
 
@@ -68,8 +68,6 @@ Data is written to CSV files in `Application.persistentDataPath`:
 - `fan_crimping_{timestamp}.csv`
 
 The data collection uses a rolling window approach (last 10 instances) to calculate recent success rates, as seen in `RuntimeCoolingFan.AddDataInstance()`.
-
-![Neural Network Architecture](/images/projects/immersive-cog-factory-twin-neural-network.png)
 
 ### LLM Integration for Analysis
 
@@ -180,3 +178,4 @@ This project is part of Industry 5.0 research focusing on human-centric manufact
 ## License
 
 See repository for license information.
+
